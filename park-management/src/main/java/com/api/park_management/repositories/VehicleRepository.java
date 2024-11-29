@@ -9,4 +9,10 @@ import java.util.UUID;
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     Vehicle findByVehiclePlate(String vehiclePlate);
+    
+    Vehicle findByVehiclePlateAndCurrentSpotIsNull(String vehiclePlate);
+
+    Vehicle findByVehiclePlateAndAssociatedCustomerIsNull(String vehiclePlate);
+
+    Vehicle findByVehiclePlateAndCurrentSpotIsNullAndAssociatedCustomerIsNull(String vehiclePlate);
 }

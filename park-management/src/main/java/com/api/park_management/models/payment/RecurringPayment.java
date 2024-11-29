@@ -1,28 +1,36 @@
 package com.api.park_management.models.payment;
 
 import com.api.park_management.models.Customer;
-import jakarta.persistence.DiscriminatorValue;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import lombok.Getter;
-import lombok.Setter;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.PastOrPresent;
 
 import java.time.LocalDateTime;
 
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.*;
+
 @Entity
 @DiscriminatorValue("RECURRING")
-@Getter
-@Setter
+@Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 public class RecurringPayment extends Payment {
+    
+    @PastOrPresent
     private LocalDateTime periodStart;
 
+    @Future
     private LocalDateTime periodEnd;
 
-    private boolean isActive = false;
+    @NotEmpty
+    private boolean active = false;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = true)
-    private Customer associatedCustomer;
+    @JsonBackReference
+    private Customer payerCustomer;
 
 }

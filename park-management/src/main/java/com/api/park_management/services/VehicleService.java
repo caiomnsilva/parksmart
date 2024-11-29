@@ -1,40 +1,54 @@
 package com.api.park_management.services;
 
-import com.api.park_management.dtos.VehicleRecordDto;
-import com.api.park_management.models.Vehicle;
-import com.api.park_management.models.enums.VehicleType;
-import com.api.park_management.repositories.VehicleRepository;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
-import java.util.List;
-import java.util.UUID;
+import com.api.park_management.dto.VehicleDTO;
+import com.api.park_management.dto.mapper.VehicleMapper;
+import com.api.park_management.models.Vehicle;
+import com.api.park_management.repositories.VehicleRepository;
 
+@Validated
 @Service
 public class VehicleService {
     private final VehicleRepository vehicleRepository;
+    private final VehicleMapper vehicleMapper;
 
-    public VehicleService(VehicleRepository vehicleRepository) {
+    public VehicleService(VehicleRepository vehicleRepository, VehicleMapper vehicleMapper) {
         this.vehicleRepository = vehicleRepository;
+        this.vehicleMapper = vehicleMapper;
     }
 
-    public List<Vehicle> getAllVehicles(){
-        return vehicleRepository.findAll();
+    public List<VehicleDTO> getAllVehicles(){
+        return vehicleRepository.findAll()
+                                .stream()
+                                .map(vehicleMapper::toDTO)
+                                .collect(Collectors.toList());
     }
 
-    public Vehicle findVehicleByPlate(String vehiclePlate) {
-        return vehicleRepository.findByVehiclePlate(vehiclePlate);
+    public VehicleDTO findVehicleByPlate(String vehiclePlate) {
+        return vehicleMapper.toDTO(vehicleRepository.findByVehiclePlate(vehiclePlate));
     }
 
     @Transactional
-    public Vehicle saveVehicle(VehicleRecordDto vehicleRecordDto) {
-        Vehicle vehicle = new Vehicle();
-        vehicle.setVehiclePlate(vehicleRecordDto.vehiclePlate());
-        vehicle.setColor(vehicleRecordDto.color());
-        vehicle.setModel(vehicleRecordDto.model());
-        vehicle.setType(VehicleType.valueOf(vehicleRecordDto.type()));
+    public VehicleDTO createVehicle(VehicleDTO vehicleDTO) {
+        return vehicleMapper.toDTO(vehicleRepository.save(vehicleMapper.toEntity(vehicleDTO)));
+    }
 
-        return vehicleRepository.save(vehicle);
+    @Transactional
+    public VehicleDTO updateVehicle(String vehiclePlate, VehicleDTO vehicleDTO) {
+        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
+        vehicleMapper.updateVehicleFromDTO(vehicleDTO, vehicle);
+        return vehicleMapper.toDTO(vehicleRepository.save(vehicle));
+    }
+
+    @Transactional
+    public void deleteVehicle(String vehiclePlate) {
+        Vehicle vehicle = vehicleRepository.findByVehiclePlateAndCurrentSpotIsNullAndAssociatedCustomerIsNull(vehiclePlate);
+        vehicleRepository.delete(vehicle);
     }
 }

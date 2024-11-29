@@ -1,53 +1,89 @@
 package com.api.park_management.services;
 
-import com.api.park_management.dtos.SpotRecordDto;
-import com.api.park_management.models.Spot;
-import com.api.park_management.models.Vehicle;
-import com.api.park_management.models.enums.SpotType;
-import com.api.park_management.repositories.SpotRepository;
-import com.api.park_management.repositories.VehicleRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.api.park_management.dto.SpotDTO;
+import com.api.park_management.dto.mapper.SpotMapper;
+import com.api.park_management.enums.SpotType;
+import com.api.park_management.models.Spot;
+import com.api.park_management.models.Vehicle;
+import com.api.park_management.repositories.SpotRepository;
+import com.api.park_management.repositories.VehicleRepository;
 
 @Service
 public class SpotService {
 
     private final SpotRepository spotRepository;
     private final VehicleRepository vehicleRepository;
+    private final SpotMapper spotMapper;
 
-    public SpotService(SpotRepository spotRepository, VehicleRepository vehicleRepository) {
+    public SpotService(SpotRepository spotRepository, VehicleRepository vehicleRepository, SpotMapper spotMapper) {
         this.spotRepository = spotRepository;
         this.vehicleRepository = vehicleRepository;
+        this.spotMapper = spotMapper;
     }
 
-    public List<Spot> getAllSpots() {
-        return spotRepository.findAll();
+    public List<SpotDTO> getAllSpots() {
+        return spotRepository.findAll()
+                             .stream()
+                             .map(spotMapper::toDTO)
+                             .collect(Collectors.toList());
     }
 
-    public Spot findBySpotNumber(int spotNumber){
-        return spotRepository.findBySpotNumber(spotNumber);
-    }
-
-    @Transactional
-    public Spot saveSpot(SpotRecordDto spotRecordDto){
-        Spot spot = new Spot();
-        spot.setSpotNumber(spotRecordDto.spotNumber());
-        spot.setType(SpotType.valueOf(spotRecordDto.type()));
-
-        return spotRepository.save(spot);
+    public SpotDTO findBySpotNumber(int spotNumber){
+        return spotMapper.toDTO(spotRepository.findBySpotNumber(spotNumber));
     }
 
     @Transactional
-    public Spot putVehicleInSpot(int spotNumber, String vehiclePlate){
-        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
-        Spot spot = findBySpotNumber(spotNumber);
+    public SpotDTO saveSpot(SpotDTO spotDTO){
+        return spotMapper.toDTO(spotRepository.save(spotMapper.toEntity(spotDTO)));
+    }
+
+    @Transactional
+    public SpotDTO updateSpot(int spotNumber, SpotDTO spotDTO){
+        Spot spot = spotRepository.findBySpotNumberAndCurrentVehicleIsNull(spotNumber);
+        spotMapper.updateSpotFromDTO(spotDTO, spot);
+        return spotMapper.toDTO(spotRepository.save(spot));
+    }
+
+    @Transactional
+    public void deleteSpot(int spotNumber){
+        Spot spot = spotRepository.findBySpotNumberAndCurrentVehicleIsNull(spotNumber);
+        spotRepository.delete(spot);
+    }
+
+    @Transactional
+    public SpotDTO parkVehicle(String vehiclePlate){
+        Vehicle vehicle = vehicleRepository.findByVehiclePlateAndCurrentSpotIsNull(vehiclePlate);
+
+        Spot spot = spotRepository.findFirstByTypeAndOccupiedFalse(SpotType.fromValue(vehicle.getType().getValue()));
 
         spot.setCurrentVehicle(vehicle);
-        spot.setOcuppied(true);
+        spot.setOccupied(true);
 
-        return spotRepository.save(spot);
+        spotRepository.save(spot);
+
+        return spotMapper.toDTO(spot);
+    }
+
+    @Transactional
+    public SpotDTO unparkVehicle(String vehiclePlate){
+        Spot spot = spotRepository.findByCurrentVehicleVehiclePlate(vehiclePlate);
+
+        spot.setCurrentVehicle(null);
+        spot.setOccupied(false);
+
+        spotRepository.save(spot);
+
+        return spotMapper.toDTO(spot);
+    }
+
+    public SpotDTO findByVehiclePlate(String vehiclePlate){
+        return spotMapper.toDTO(spotRepository.findByCurrentVehicleVehiclePlate(vehiclePlate));
     }
 
 }
