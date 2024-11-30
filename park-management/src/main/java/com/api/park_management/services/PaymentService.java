@@ -7,6 +7,7 @@ import com.api.park_management.dto.mapper.RecurringPaymentMapper;
 import com.api.park_management.factory.PaymentFactory;
 import com.api.park_management.models.Vehicle;
 import com.api.park_management.models.payment.HourlyPayment;
+import com.api.park_management.models.payment.Payment;
 import com.api.park_management.models.payment.RecurringPayment;
 import com.api.park_management.repositories.PaymentRepository;
 import com.api.park_management.repositories.VehicleRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -56,10 +58,26 @@ public class PaymentService {
         HourlyPayment payment = paymentRepository.findHourlyPaymentById(id);
         return hourlyPaymentMapper.toDTO(payment);
     }
+
     @Transactional
-    public void createAndAssociatePayment(String vehiclePlate){
+    public Object createAndAssociatePayment(String vehiclePlate){
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
-        paymentFactory.createAndAssociatePayment(vehicle);
+        return findById(paymentFactory.createAndAssociatePayment(vehicle));
+    }
+
+    public Object findById(UUID id) throws RuntimeException {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Payment not found with ID: " + id));
+
+        if (payment instanceof HourlyPayment) {
+            return getHourlyPaymentById(id);
+        }
+
+        if (payment instanceof RecurringPayment) {
+            return getRecurringPaymentById(id);
+        }
+
+        return new RuntimeException("Unknown payment type");
     }
 
     @Transactional

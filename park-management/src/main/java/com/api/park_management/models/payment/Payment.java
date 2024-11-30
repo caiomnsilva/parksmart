@@ -31,7 +31,7 @@ import lombok.Data;
 
 @Entity
 @Table(name = "TB_PAYMENTS")
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
 @DiscriminatorColumn(name = "payment_type", discriminatorType = DiscriminatorType.STRING)
 @Data
 public abstract class Payment implements Serializable {
@@ -56,6 +56,6 @@ public abstract class Payment implements Serializable {
     private LocalDateTime paymentDate;
 
     @Convert(converter = PaymentStatusConverter.class)
-    private PaymentStatus status = PaymentStatus.NOT_PAID;
+    private PaymentStatus status = PaymentStatus.PENDING;
 
 }

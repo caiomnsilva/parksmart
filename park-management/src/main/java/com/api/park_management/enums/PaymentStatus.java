@@ -4,7 +4,7 @@ import com.api.park_management.enums.converter.ConvertibleEnum;
 
 public enum PaymentStatus implements ConvertibleEnum{
     PAID("Pago"),
-    NOT_PAID("Não pago"),
+    PENDING("Pendente"),
     PARTIAL("Pagamento Parcial"),
     OVERDUE("Vencido");
 

@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -34,29 +35,22 @@ public class PaymentController {
         return paymentService.getAllHourlyPayments();
     }
 
-    @Operation(summary = "Buscar pagamento recorrente por ID", description = "Endpoint para buscar um pagamento recorrente por ID.")
-    @GetMapping("/recurring/{id}")
+    @Operation(summary = "Buscar pagamento por ID", description = "Endpoint para buscar um pagamento por ID.")
+    @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    public RecurringPaymentDTO getRecurringPaymentById(@PathVariable UUID id){
-        return paymentService.getRecurringPaymentById(id);
-    }
-
-    @Operation(summary = "Buscar pagamento por hora por ID", description = "Endpoint para buscar um pagamento por hora")
-    @GetMapping("/hourly/{id}")
-    @ResponseStatus(HttpStatus.OK)
-    public HourlyPaymentDTO getHourlyPaymentById(@PathVariable UUID id){
-        return paymentService.getHourlyPaymentById(id);
+    public Object getPaymentById(@PathVariable UUID id){
+        return paymentService.findById(id);
     }
 
     @Operation(summary = "Criar e associar pagamento", description = "Endpoint para criar e associar um pagamento.")
     @PostMapping("/associate/{vehiclePlate}")
     @ResponseStatus(HttpStatus.CREATED)
-    public void createAndAssociatePayment(@PathVariable String vehiclePlate){
-        paymentService.createAndAssociatePayment(vehiclePlate);
+    public Object createAndAssociatePayment(@PathVariable String vehiclePlate){
+        return paymentService.createAndAssociatePayment(vehiclePlate);
     }
 
     @Operation(summary = "Deletar pagamento por ID", description = "Endpoint para deletar um pagamento por ID.")
-    @DeleteMapping("/recurring/{id}")
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePayment(@PathVariable UUID id){
         paymentService.deletePayment(id);
