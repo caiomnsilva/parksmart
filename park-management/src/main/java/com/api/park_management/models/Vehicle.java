@@ -2,10 +2,12 @@ package com.api.park_management.models;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.validation.constraints.PastOrPresent;
 import lombok.Data;
 import org.hibernate.validator.constraints.Length;
 
@@ -60,6 +62,9 @@ public class Vehicle implements Serializable {
     @Convert(converter = VehicleTypeConverter.class)
     @Column(nullable = false)
     private VehicleType type;
+
+    @PastOrPresent
+    private LocalDateTime entryTime;
 
     @ManyToOne
     @JoinColumn(name = "customer_id")

@@ -25,6 +25,7 @@ public class RecurringPayment extends Payment {
     @Future
     private LocalDateTime periodEnd;
 
+    @Column(nullable = false)
     private boolean active = false;
 
     @NotNull

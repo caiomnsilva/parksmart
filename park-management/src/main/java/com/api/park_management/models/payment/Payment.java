@@ -12,16 +12,7 @@ import com.api.park_management.enums.converter.PaymentMethodConverter;
 import com.api.park_management.enums.converter.PaymentStatusConverter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import jakarta.persistence.Convert;
-import jakarta.persistence.DiscriminatorColumn;
-import jakarta.persistence.DiscriminatorType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Inheritance;
-import jakarta.persistence.InheritanceType;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
@@ -44,12 +35,15 @@ public abstract class Payment implements Serializable {
     private UUID idPayment;
 
     @PositiveOrZero
-    private BigDecimal paidAmount;
+    @Column(nullable = false)
+    private BigDecimal paidAmount = BigDecimal.valueOf(0.00);
 
     @PositiveOrZero
-    private BigDecimal amountToPay = BigDecimal.valueOf(8.00);
+    @Column(nullable = false)
+    private BigDecimal amountToPay = BigDecimal.valueOf(0.00);
 
     @Convert(converter = PaymentMethodConverter.class)
+    @Column(nullable = false)
     private PaymentMethod method = PaymentMethod.UNDEFINED;
 
     @PastOrPresent

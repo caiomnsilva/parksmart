@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.api.park_management.enums.HourlyPaymentType;
 import com.api.park_management.enums.PaymentMethod;
 import com.api.park_management.enums.PaymentStatus;
 import com.api.park_management.enums.validation.ValueOfEnum;
@@ -22,7 +23,11 @@ public record HourlyPaymentDTO(
         @ValueOfEnum(enumClass = PaymentStatus.class) String status,
         @PastOrPresent LocalDateTime paymentDate,
         @Positive Double hoursParked,
+
         @PastOrPresent LocalDateTime entryTime,
         @FutureOrPresent LocalDateTime exitTime,
+
+        @ValueOfEnum(enumClass = HourlyPaymentType.class) String type,
+
         String vehiclePlate
 ) {}

@@ -43,10 +43,10 @@ public class PaymentController {
     }
 
     @Operation(summary = "Criar e associar pagamento", description = "Endpoint para criar e associar um pagamento.")
-    @PostMapping("/associate/{vehiclePlate}")
+    @PostMapping("/associate/{vehiclePlate}&{type}")
     @ResponseStatus(HttpStatus.CREATED)
-    public Object createAndAssociatePayment(@PathVariable String vehiclePlate){
-        return paymentService.createAndAssociatePayment(vehiclePlate);
+    public Object createAndAssociatePayment(@PathVariable String vehiclePlate,@PathVariable String type){
+        return paymentService.createAndAssociatePayment(vehiclePlate, type);
     }
 
     @Operation(summary = "Deletar pagamento por ID", description = "Endpoint para deletar um pagamento por ID.")

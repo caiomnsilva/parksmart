@@ -1,6 +1,7 @@
 package com.api.park_management.controllers;
 
 import com.api.park_management.dto.SpotDTO;
+import com.api.park_management.enums.SpotType;
 import com.api.park_management.services.SpotService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.HttpStatus;
@@ -65,5 +66,40 @@ public class SpotController {
     @ResponseStatus(code = HttpStatus.OK)
     public SpotDTO putVehicleInSpot(@PathVariable String vehiclePlate){
         return spotService.unparkVehicle(vehiclePlate);
+    }
+
+    @Operation(summary = "Retorna o total de vagas.", description = "Endpoint para retornar o total de vagas.")
+    @GetMapping("/total")
+    @ResponseStatus(code = HttpStatus.OK)
+    public long getTotalSpots() {
+        return spotService.getTotalSpots();
+    }
+
+    @Operation(summary = "Retorna o total de vagas ocupadas.", description = "Endpoint para retornar o total de vagas ocupadas.")
+    @GetMapping("/occupied")
+    @ResponseStatus(code = HttpStatus.OK)
+    public long getOccupiedSpots() {
+        return spotService.getOccupiedSpots();
+    }
+
+    @Operation(summary = "Retorna o total de vagas livres.", description = "Endpoint para retornar o total de vagas livres.")
+    @GetMapping("/available")
+    @ResponseStatus(code = HttpStatus.OK)
+    public long getAvailableSpots() {
+        return spotService.getAvailableSpots();
+    }
+
+    @Operation(summary = "Retorna a porcentagem de ocupação.", description = "Endpoint para retornar a porcentagem de ocupação.")
+    @GetMapping("/occupancy-rate")
+    @ResponseStatus(code = HttpStatus.OK)
+    public double getOccupancyRate() {
+        return spotService.getOccupancyRate();
+    }
+
+    @Operation(summary = "Acha uma lista de vagas pelo tipo.", description = "Endpoint para achar uma lista de vagas pelo tipo.")
+    @GetMapping("/type/{type}")
+    @ResponseStatus(code = HttpStatus.OK)
+    public List<SpotDTO> getByType(@PathVariable String type){
+        return spotService.getByType(SpotType.valueOf(type));
     }
 }

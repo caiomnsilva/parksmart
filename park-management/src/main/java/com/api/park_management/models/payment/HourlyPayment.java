@@ -1,11 +1,10 @@
 package com.api.park_management.models.payment;
 
+import com.api.park_management.enums.HourlyPaymentType;
+import com.api.park_management.enums.converter.HourlyPaymentTypeConverter;
 import com.api.park_management.models.Vehicle;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
@@ -30,6 +29,10 @@ public class HourlyPayment extends Payment {
 
     @FutureOrPresent
     private LocalDateTime exitTime;
+
+    @Convert(converter = HourlyPaymentTypeConverter.class)
+    @Column(nullable = false)
+    private HourlyPaymentType type = HourlyPaymentType.HOURLY;
 
     @NotNull
     @ManyToOne

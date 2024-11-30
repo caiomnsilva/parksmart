@@ -1,7 +1,9 @@
 package com.api.park_management.dto;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
+import jakarta.validation.constraints.PastOrPresent;
 import org.hibernate.validator.constraints.Length;
 
 import com.api.park_management.enums.VehicleType;
@@ -21,6 +23,8 @@ public record VehicleDTO(
         @NotBlank @Length(min = 3, max = 25) String color,
 
         @ValueOfEnum(enumClass = VehicleType.class) String type,
+
+        @PastOrPresent LocalDateTime entryTime,
 
         String customerCpf,
 

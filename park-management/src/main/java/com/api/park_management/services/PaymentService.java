@@ -4,13 +4,18 @@ import com.api.park_management.dto.HourlyPaymentDTO;
 import com.api.park_management.dto.RecurringPaymentDTO;
 import com.api.park_management.dto.mapper.HourlyPaymentMapper;
 import com.api.park_management.dto.mapper.RecurringPaymentMapper;
+import com.api.park_management.enums.HourlyPaymentType;
+import com.api.park_management.exceptions.ApiException;
 import com.api.park_management.factory.PaymentFactory;
 import com.api.park_management.models.Vehicle;
 import com.api.park_management.models.payment.HourlyPayment;
 import com.api.park_management.models.payment.Payment;
 import com.api.park_management.models.payment.RecurringPayment;
+import com.api.park_management.repositories.HourlyPaymentRepository;
 import com.api.park_management.repositories.PaymentRepository;
+import com.api.park_management.repositories.RecurringPaymentRepository;
 import com.api.park_management.repositories.VehicleRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,13 +31,17 @@ public class PaymentService {
     private final RecurringPaymentMapper recurringPaymentMapper;
     private final PaymentFactory paymentFactory;
     private final VehicleRepository vehicleRepository;
+    private final HourlyPaymentRepository hourlyPaymentRepository;
+    private final RecurringPaymentRepository recurringPaymentRepository;
 
-    public PaymentService(PaymentRepository paymentRepository, HourlyPaymentMapper hourlyPaymentMapper, RecurringPaymentMapper recurringPaymentMapper, PaymentFactory paymentFactory, VehicleRepository vehicleRepository) {
+    public PaymentService(PaymentRepository paymentRepository, HourlyPaymentMapper hourlyPaymentMapper, RecurringPaymentMapper recurringPaymentMapper, PaymentFactory paymentFactory, VehicleRepository vehicleRepository, HourlyPaymentRepository hourlyPaymentRepository, RecurringPaymentRepository recurringPaymentRepository) {
         this.paymentRepository = paymentRepository;
         this.hourlyPaymentMapper = hourlyPaymentMapper;
         this.recurringPaymentMapper = recurringPaymentMapper;
         this.paymentFactory = paymentFactory;
         this.vehicleRepository = vehicleRepository;
+        this.hourlyPaymentRepository = hourlyPaymentRepository;
+        this.recurringPaymentRepository = recurringPaymentRepository;
     }
 
     public List<RecurringPaymentDTO> getAllRecurringPayments(){
@@ -60,14 +69,14 @@ public class PaymentService {
     }
 
     @Transactional
-    public Object createAndAssociatePayment(String vehiclePlate){
+    public Object createAndAssociatePayment(String vehiclePlate, String type) {
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
-        return findById(paymentFactory.createAndAssociatePayment(vehicle));
+        return findById(paymentFactory.createAndAssociatePayment(vehicle, type));
     }
 
-    public Object findById(UUID id) throws RuntimeException {
+    public Object findById(UUID id){
         Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Payment not found with ID: " + id));
+                .orElseThrow(() -> new ApiException("Payment not found with ID: " + id, HttpStatus.NOT_FOUND));
 
         if (payment instanceof HourlyPayment) {
             return getHourlyPaymentById(id);
@@ -84,4 +93,5 @@ public class PaymentService {
     public void deletePayment(UUID id){
         paymentRepository.deleteById(id);
     }
+
 }
