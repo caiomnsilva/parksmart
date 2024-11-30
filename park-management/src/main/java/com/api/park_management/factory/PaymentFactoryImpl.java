@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,26 +32,27 @@ public class PaymentFactoryImpl implements PaymentFactory{
 
     @Override
     public UUID createAndAssociatePayment(Vehicle vehicle, String type) {
-        if (hasPendingHourlyPayments(vehicle.getVehiclePlate()) || hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf())) {
+        if (hasPendingHourlyPayments(vehicle.getVehiclePlate()) ||
+                (vehicle.getAssociatedCustomer() != null && hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf()))) {
             throw new ApiException("O veículo possui pagamentos pendentes e não pode iniciar um novo pagamento ou entrar no estacionamento.", HttpStatus.BAD_REQUEST);
         }
+
+        System.out.println("Creating payment for vehicle: " + vehicle.getVehiclePlate());
 
         Payment payment = createPayment(vehicle);
 
         // Se o pagamento for por hora, então associa o veículo ao pagamento
         if (payment instanceof HourlyPayment hourlyPayment) {
             hourlyPayment.setPayerVehicle(vehicle);
-            hourlyPayment.setEntryTime(vehicle.getEntryTime() != null ? vehicle.getEntryTime() : LocalDateTime.now());
-            paymentRepository.saveAndFlush(hourlyPayment);
             setHourlyPaymentType(hourlyPayment.getIdPayment(), type);
-            setHourlyPaymentAmoutToPay(hourlyPayment);
+            payment.setAmountToPay(setHourlyPaymentAmoutToPay(type));
+            paymentRepository.saveAndFlush(hourlyPayment);
             return hourlyPayment.getIdPayment();
         }
 
         // Se o pagamento for recorrente, então associa o cliente ao pagamento e define o valor a ser pago
         if (payment instanceof RecurringPayment recurringPayment) {
             recurringPayment.setPayerCustomer(vehicle.getAssociatedCustomer());
-            recurringPayment.setPeriodStart(vehicle.getEntryTime() != null ? vehicle.getEntryTime() : LocalDateTime.now());
             recurringPayment.setAmountToPay(BigDecimal.valueOf(100.00));
             paymentRepository.saveAndFlush(recurringPayment);
             return recurringPayment.getIdPayment();
@@ -62,7 +62,8 @@ public class PaymentFactoryImpl implements PaymentFactory{
     }
 
     // Cria um pagamento de acordo com o tipo de cliente associado ao veículo
-    private Payment createPayment(Vehicle vehicle){
+    @Override
+    public Payment createPayment(Vehicle vehicle){
         // Se o veículo não tiver um cliente associado ou o cliente não for mensal, então o pagamento é por hora
         if(vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY){
             return new HourlyPayment();
@@ -85,20 +86,20 @@ public class PaymentFactoryImpl implements PaymentFactory{
     }
 
     // Define o valor a ser pago de acordo com o tipo de pagamento por hora
-    private void setHourlyPaymentAmoutToPay(HourlyPayment payment){
-        if(payment.getType() == HourlyPaymentType.NIGHT){
-            payment.setAmountToPay(BigDecimal.valueOf(35.00));
+    private BigDecimal setHourlyPaymentAmoutToPay(String type){
+        if(HourlyPaymentType.valueOf(type) == HourlyPaymentType.NIGHT){
+            return BigDecimal.valueOf(35.00);
         }
 
-        if(payment.getType() == HourlyPaymentType.DAYLIGHT){
-            payment.setAmountToPay(BigDecimal.valueOf(20.00));
+        if(HourlyPaymentType.valueOf(type) == HourlyPaymentType.DAYLIGHT){
+            return BigDecimal.valueOf(20.00);
         }
 
-        if(payment.getType() == HourlyPaymentType.HOURLY){
-            payment.setAmountToPay(BigDecimal.valueOf(5.00));
+        if(HourlyPaymentType.valueOf(type) == HourlyPaymentType.HOURLY){
+            return BigDecimal.valueOf(5.00);
         }
 
-        hourlyPaymentRepository.saveAndFlush(payment);
+        throw new ApiException("Tipo de pagamento por hora inválido: " + type, HttpStatus.BAD_REQUEST);
     }
 
     private boolean hasPendingHourlyPayments(String vehiclePlate) {

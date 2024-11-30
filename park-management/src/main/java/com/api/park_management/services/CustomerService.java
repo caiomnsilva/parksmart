@@ -39,25 +39,29 @@ public class CustomerService {
     }
 
     public CustomerDTO findByCpf(String cpf) {
-        return customerMapper.toDTO(customerRepository.findByCpf(cpf));
+        return customerMapper.toDTO(customerRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ApiException("Cliente não encontrado para cpf: " + cpf, HttpStatus.NOT_FOUND)));
     }
 
     @Transactional
     public void deleteCustomer(String cpf) {
-        Customer customer = customerRepository.findByCpf(cpf);
+        Customer customer = customerRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ApiException("Cliente não encontrado para cpf: " + cpf, HttpStatus.NOT_FOUND));;
         customerRepository.delete(customer);
     }
 
     @Transactional
     public CustomerDTO updateCustomer(String cpf, CustomerDTO customerDTO) {
-        Customer customer = customerRepository.findByCpf(cpf);
+        Customer customer = customerRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ApiException("Cliente não encontrado para cpf: " + cpf, HttpStatus.NOT_FOUND));;
         customerMapper.updateCustomerFromDTO(customerDTO, customer);
         return customerMapper.toDTO(customerRepository.save(customer));
     }
 
     @Transactional
     public CustomerDTO addVehicle(String cpf, String vehiclePlate){
-        Customer customer = customerRepository.findByCpf(cpf);
+        Customer customer = customerRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ApiException("Cliente não encontrado para cpf: " + cpf, HttpStatus.NOT_FOUND));;
         Vehicle vehicle = vehicleRepository.findByVehiclePlateAndAssociatedCustomerIsNull(vehiclePlate);
 
         customer.getVehicles().add(vehicle);
@@ -70,7 +74,8 @@ public class CustomerService {
 
     @Transactional
     public CustomerDTO removeVehicle(String cpf, String vehiclePlate){
-        Customer customer = customerRepository.findByCpf(cpf);
+        Customer customer = customerRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ApiException("Cliente não encontrado para cpf: " + cpf, HttpStatus.NOT_FOUND));
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 

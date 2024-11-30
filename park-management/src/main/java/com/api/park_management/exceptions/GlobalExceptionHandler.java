@@ -24,7 +24,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CustomErrorResponse> handleException(Exception ex) {
-        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro interno do servidor", HttpStatus.INTERNAL_SERVER_ERROR);
+        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro interno do servidor " + ex, HttpStatus.INTERNAL_SERVER_ERROR);
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

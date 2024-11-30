@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface PaymentFactory {
     UUID createAndAssociatePayment(Vehicle vehicle, String type);
+    Payment createPayment(Vehicle vehicle);
 }
