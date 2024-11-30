@@ -20,12 +20,11 @@ import lombok.*;
 public class RecurringPayment extends Payment {
     
     @PastOrPresent
-    private LocalDateTime periodStart;
+    private LocalDateTime periodStart = LocalDateTime.now();
 
     @Future
     private LocalDateTime periodEnd;
 
-    @NotEmpty
     private boolean active = false;
 
     @ManyToOne(fetch = FetchType.LAZY)

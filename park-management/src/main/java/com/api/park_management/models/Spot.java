@@ -47,7 +47,7 @@ public class Spot implements Serializable {
     private SpotType type;
 
     @Column(nullable = false)
-    private boolean occupied;
+    private boolean occupied = false;
 
     @OneToOne
     @JoinColumn(name = "vehicle_id")

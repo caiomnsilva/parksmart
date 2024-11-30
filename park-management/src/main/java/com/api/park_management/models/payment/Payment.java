@@ -46,17 +46,15 @@ public abstract class Payment implements Serializable {
     @PositiveOrZero
     private BigDecimal paidAmount;
 
-    @Positive
-    private BigDecimal amountToPay;
+    @PositiveOrZero
+    private BigDecimal amountToPay = BigDecimal.valueOf(8.00);
 
-    @NotBlank
     @Convert(converter = PaymentMethodConverter.class)
-    private PaymentMethod method;
+    private PaymentMethod method = PaymentMethod.UNDEFINED;
 
     @PastOrPresent
     private LocalDateTime paymentDate;
 
-    @NotBlank
     @Convert(converter = PaymentStatusConverter.class)
     private PaymentStatus status = PaymentStatus.NOT_PAID;
 

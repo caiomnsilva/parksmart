@@ -3,6 +3,7 @@ package com.api.park_management.services;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.api.park_management.enums.CustomerType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,7 +61,12 @@ public class SpotService {
     public SpotDTO parkVehicle(String vehiclePlate){
         Vehicle vehicle = vehicleRepository.findByVehiclePlateAndCurrentSpotIsNull(vehiclePlate);
 
-        Spot spot = spotRepository.findFirstByTypeAndOccupiedFalse(SpotType.fromValue(vehicle.getType().getValue()));
+        //define o tipo da vaga de acordo com o tipo do veículo ou tipo de cliente associado ao veículo.
+        SpotType spotType = (vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY)
+                ? SpotType.fromValue(vehicle.getType().getValue())
+                : SpotType.fromValue(vehicle.getAssociatedCustomer().getType().getValue());
+
+        Spot spot = spotRepository.findFirstByTypeAndOccupiedFalse(spotType);
 
         spot.setCurrentVehicle(vehicle);
         spot.setOccupied(true);

@@ -19,7 +19,7 @@ public record HourlyPaymentDTO(
         @Positive BigDecimal paidAmount,
         @Positive BigDecimal amountToPay,
         @ValueOfEnum(enumClass = PaymentMethod.class) String method,
-        @NotBlank @ValueOfEnum(enumClass = PaymentStatus.class) String status,
+        @ValueOfEnum(enumClass = PaymentStatus.class) String status,
         @PastOrPresent LocalDateTime paymentDate,
         @Positive Double hoursParked,
         @PastOrPresent LocalDateTime entryTime,

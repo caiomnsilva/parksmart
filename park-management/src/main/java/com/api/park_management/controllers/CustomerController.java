@@ -39,7 +39,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "Remover veículo do cliente", description = "Endpoint para remover um veículo do cliente.")
-    @PatchMapping("/{cpf}/vehicles/{vehiclePlate}")
+    @PutMapping("/{cpf}/vehicles/{vehiclePlate}")
     @ResponseStatus(HttpStatus.OK)
     public CustomerDTO removeVehicle(@PathVariable String cpf, @PathVariable String vehiclePlate) {
         return customerService.removeVehicle(cpf, vehiclePlate);

@@ -17,7 +17,6 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
-
     private final VehicleRepository vehicleRepository;
 
     public CustomerService(CustomerRepository customerRepository, CustomerMapper customerMapper, VehicleRepository vehicleRepository) {
