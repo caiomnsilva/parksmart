@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum CustomerType implements ConvertibleEnum {
     REGULAR("Regular"),
@@ -29,6 +31,6 @@ public enum CustomerType implements ConvertibleEnum {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de cliente inválido: " + value);
+        throw new ApiException("Tipo de cliente inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }

@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum PaymentMethod implements ConvertibleEnum {
     CASH("Dinheiro"),
@@ -31,6 +33,6 @@ public enum PaymentMethod implements ConvertibleEnum {
                 return method;
             }
         }
-        throw new IllegalArgumentException("Método de pagamento inválido: " + value);
+        throw new ApiException("Método de pagamento inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }

@@ -3,6 +3,8 @@ package com.api.park_management.services;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -31,7 +33,8 @@ public class VehicleService {
     }
 
     public VehicleDTO findVehicleByPlate(String vehiclePlate) {
-        return vehicleMapper.toDTO(vehicleRepository.findByVehiclePlate(vehiclePlate));
+        return vehicleMapper.toDTO(vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND)));
     }
 
     @Transactional
@@ -41,7 +44,8 @@ public class VehicleService {
 
     @Transactional
     public VehicleDTO updateVehicle(String vehiclePlate, VehicleDTO vehicleDTO) {
-        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
+        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
         vehicleMapper.updateVehicleFromDTO(vehicleDTO, vehicle);
         return vehicleMapper.toDTO(vehicleRepository.save(vehicle));
     }

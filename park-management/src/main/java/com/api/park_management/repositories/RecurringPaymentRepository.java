@@ -13,4 +13,6 @@ public interface RecurringPaymentRepository extends JpaRepository<RecurringPayme
     RecurringPayment findRecurringPaymentByPayerCustomerCpf(String cpf);
 
     List<RecurringPayment> findByPayerCustomerCpfAndStatusIn(String cpf, List<PaymentStatus> status);
+
+    RecurringPayment findByPayerCustomerCpfAndStatus(String cpf, PaymentStatus status);
 }

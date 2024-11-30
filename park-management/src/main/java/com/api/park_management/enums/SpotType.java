@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum SpotType implements ConvertibleEnum {
     MOTORCYCLE("Moto"),
@@ -30,6 +32,6 @@ public enum SpotType implements ConvertibleEnum {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de vaga inválido: " + value);
+        throw new ApiException("Tipo de vaga inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }

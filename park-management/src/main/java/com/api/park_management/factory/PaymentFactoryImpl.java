@@ -32,15 +32,6 @@ public class PaymentFactoryImpl implements PaymentFactory{
     }
 
     @Override
-    public Payment createPayment(Vehicle vehicle){
-        // Se o veículo não tiver um cliente associado ou o cliente não for mensal, então o pagamento é por hora
-       if(vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY){
-           return new HourlyPayment();
-       }
-        return new RecurringPayment(); // Se o cliente for mensal, então o pagamento é recorrente
-    }
-
-    @Override
     public UUID createAndAssociatePayment(Vehicle vehicle, String type) {
         if (hasPendingHourlyPayments(vehicle.getVehiclePlate()) || hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf())) {
             throw new ApiException("O veículo possui pagamentos pendentes e não pode iniciar um novo pagamento ou entrar no estacionamento.", HttpStatus.BAD_REQUEST);
@@ -70,17 +61,31 @@ public class PaymentFactoryImpl implements PaymentFactory{
         throw new ApiException("Unknown payment type: " + payment.getClass().getName(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    // Cria um pagamento de acordo com o tipo de cliente associado ao veículo
+    private Payment createPayment(Vehicle vehicle){
+        // Se o veículo não tiver um cliente associado ou o cliente não for mensal, então o pagamento é por hora
+        if(vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY){
+            return new HourlyPayment();
+        }
+        return new RecurringPayment(); // Se o cliente for mensal, então o pagamento é recorrente
+    }
+
     // Define o tipo de pagamento por hora
-    public void setHourlyPaymentType(UUID id, String type){
+    private void setHourlyPaymentType(UUID id, String type){
         HourlyPayment payment = hourlyPaymentRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Pagamento por hora não encontrado", HttpStatus.NOT_FOUND));
 
+        try {
             payment.setType(HourlyPaymentType.valueOf(type));
-            hourlyPaymentRepository.saveAndFlush(payment);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException("Tipo de pagamento por hora inválido: " + type, HttpStatus.BAD_REQUEST);
+        }
+
+        hourlyPaymentRepository.saveAndFlush(payment);
     }
 
     // Define o valor a ser pago de acordo com o tipo de pagamento por hora
-    public void setHourlyPaymentAmoutToPay(HourlyPayment payment){
+    private void setHourlyPaymentAmoutToPay(HourlyPayment payment){
         if(payment.getType() == HourlyPaymentType.NIGHT){
             payment.setAmountToPay(BigDecimal.valueOf(35.00));
         }
@@ -96,17 +101,17 @@ public class PaymentFactoryImpl implements PaymentFactory{
         hourlyPaymentRepository.saveAndFlush(payment);
     }
 
-    public boolean hasPendingHourlyPayments(String vehiclePlate) {
+    private boolean hasPendingHourlyPayments(String vehiclePlate) {
         // Verifica se existem pagamentos pendentes, vencidos ou parciais para a placa do veículo
         List<HourlyPayment> payments = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndStatusIn(vehiclePlate
                 , List.of(PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PARTIAL));
         return !payments.isEmpty();
     }
 
-    public boolean hasPendingRecurringPayments(String cpf) {
+    private boolean hasPendingRecurringPayments(String cpf) {
         // Verifica se existem pagamentos pendentes, vencidos ou parciais para o CPF do cliente
         List<RecurringPayment> payments = recurringPaymentRepository.findByPayerCustomerCpfAndStatusIn(cpf
-                , List.of(PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PARTIAL));
+                , List.of(PaymentStatus.PENDING, PaymentStatus.PARTIAL));
         return !payments.isEmpty();
     }
 }

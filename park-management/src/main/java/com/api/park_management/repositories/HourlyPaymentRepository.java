@@ -13,4 +13,6 @@ public interface HourlyPaymentRepository extends JpaRepository<HourlyPayment, UU
     HourlyPayment findHourlyPaymentByPayerVehicleVehiclePlate(String vehiclePlate);
 
     List<HourlyPayment> findByPayerVehicleVehiclePlateAndStatusIn(String vehiclePlate, List<PaymentStatus> status);
+
+    HourlyPayment findByPayerVehicleVehiclePlateAndStatus(String vehiclePlate, PaymentStatus status);
 }

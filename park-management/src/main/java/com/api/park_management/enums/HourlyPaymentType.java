@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum HourlyPaymentType implements ConvertibleEnum {
     HOURLY("Hora"),
@@ -29,6 +31,6 @@ public enum HourlyPaymentType implements ConvertibleEnum {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de pagamento por hora inválido: " + value);
+        throw new ApiException("Tipo de pagamento por hora inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }

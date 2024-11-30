@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum VehicleType implements ConvertibleEnum {
     MOTORCYCLE("Moto"),
@@ -29,7 +31,7 @@ public enum VehicleType implements ConvertibleEnum {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de veículo inválido: " + value);
+        throw new ApiException("Tipo de veículo inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }
 

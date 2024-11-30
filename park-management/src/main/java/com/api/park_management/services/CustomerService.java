@@ -2,10 +2,12 @@ package com.api.park_management.services;
 
 import com.api.park_management.dto.CustomerDTO;
 import com.api.park_management.dto.mapper.CustomerMapper;
+import com.api.park_management.exceptions.ApiException;
 import com.api.park_management.models.Customer;
 import com.api.park_management.models.Vehicle;
 import com.api.park_management.repositories.CustomerRepository;
 import com.api.park_management.repositories.VehicleRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,7 +71,8 @@ public class CustomerService {
     @Transactional
     public CustomerDTO removeVehicle(String cpf, String vehiclePlate){
         Customer customer = customerRepository.findByCpf(cpf);
-        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate);
+        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
         if (!vehicle.getAssociatedCustomer().getCpf().equals(customer.getCpf())){
             throw new IllegalArgumentException("Vehicle is not associated with this customer");

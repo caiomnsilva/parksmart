@@ -1,6 +1,8 @@
 package com.api.park_management.enums;
 
 import com.api.park_management.enums.converter.ConvertibleEnum;
+import com.api.park_management.exceptions.ApiException;
+import org.springframework.http.HttpStatus;
 
 public enum PaymentStatus implements ConvertibleEnum{
     PAID("Pago"),
@@ -30,6 +32,6 @@ public enum PaymentStatus implements ConvertibleEnum{
                 return status;
             }
         }
-        throw new IllegalArgumentException("Status de pagamento inválido: " + value);
+        throw new ApiException("Status de pagamento inválido: " + value, HttpStatus.BAD_REQUEST);
     }
 }
