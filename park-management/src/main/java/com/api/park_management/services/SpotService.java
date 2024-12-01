@@ -1,5 +1,6 @@
 package com.api.park_management.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -65,7 +66,6 @@ public class SpotService {
         Vehicle vehicle = vehicleRepository.findByVehiclePlateAndCurrentSpotIsNull(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veículo não encontrado ou já está dentro do estacionamento!", HttpStatus.NOT_FOUND));
 
-        //define o tipo da vaga de acordo com o tipo do veículo ou tipo de cliente associado ao veículo.
         SpotType spotType = (vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY)
                 ? SpotType.fromValue(vehicle.getType().getValue())
                 : SpotType.fromValue(vehicle.getAssociatedCustomer().getType().getValue());
@@ -73,6 +73,7 @@ public class SpotService {
         Spot spot = spotRepository.findFirstByTypeAndOccupiedFalse(spotType)
                 .orElseThrow(() -> new ApiException("Não há vagas disponíveis!", HttpStatus.NOT_FOUND));
 
+        vehicle.setEntryTime(LocalDateTime.now());
         spot.setCurrentVehicle(vehicle);
         spot.setOccupied(true);
 

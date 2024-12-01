@@ -34,4 +34,17 @@ public class RecurringPayment extends Payment {
     @JsonBackReference
     private Customer payerCustomer;
 
+    @PrePersist
+    public void prePersist() {
+
+        if (periodStart == null) {
+            periodStart = LocalDateTime.now();
+        }
+
+        if (periodEnd == null) {
+            periodEnd = periodStart.plusMonths(1);
+        }
+
+    }
+
 }

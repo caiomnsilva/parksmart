@@ -24,6 +24,7 @@ import java.time.Duration;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -114,7 +115,7 @@ public class PaymentService {
         paymentRepository.deleteById(id);
     }
 
-    private Object findUnpaidPayment(String vehiclePlate) {
+    public Object findUnpaidPayment(String vehiclePlate) {
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veículo não encontrado para a placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
@@ -123,6 +124,10 @@ public class PaymentService {
                     .findByPayerVehicleVehiclePlateAndStatus(vehiclePlate, PaymentStatus.PENDING);
 
             if (hourlyPayment == null) {
+                hourlyPayment = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndStatus(vehiclePlate, PaymentStatus.PARTIAL);
+            }
+
+            if (hourlyPayment == null){
                 throw new ApiException("Nenhum pagamento pendente encontrado para a placa: " + vehiclePlate, HttpStatus.NOT_FOUND);
             }
 
@@ -133,99 +138,158 @@ public class PaymentService {
                 .findByPayerCustomerCpfAndStatus(vehicle.getAssociatedCustomer().getCpf(), PaymentStatus.PENDING);
 
         if (recurringPayment == null) {
-            throw new ApiException("Nenhum pagamento pendente encontrado para o cliente associado à placa: " + vehiclePlate, HttpStatus.NOT_FOUND);
+            recurringPayment = recurringPaymentRepository.findByPayerCustomerCpfAndStatus(vehicle.getAssociatedCustomer().getCpf(), PaymentStatus.PARTIAL);
+        }
+
+        if (recurringPayment == null){
+            throw new ApiException("Nenhum pagamento pendente encontrado para o CPF: " + vehicle.getAssociatedCustomer().getCpf(), HttpStatus.NOT_FOUND);
         }
 
         return findById(recurringPayment.getIdPayment());
     }
 
-    public Object payPayment(String vehiclePlate, BigDecimal amount, String method) {
-        Object payment = findUnpaidPayment(vehiclePlate);
-
+    public Object handlePayment(String vehiclePlate, BigDecimal amount, String method) {
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
+        if(vehicle.getEntryTime() == null){
+            throw new ApiException("Veículo não está estacionado.", HttpStatus.NOT_FOUND);
+        }
+
+        if(Objects.equals(method, PaymentMethod.UNDEFINED.getValue())){
+            throw new ApiException("Método de pagamento inválido.", HttpStatus.BAD_REQUEST);
+        }
+
+        Object payment = findUnpaidPayment(vehiclePlate);
+
         if (payment instanceof HourlyPaymentDTO hourlyPaymentDTO) {
             HourlyPayment hourlyPayment = hourlyPaymentMapper.toEntity(hourlyPaymentDTO);
+
+            if(hourlyPayment.getType() == HourlyPaymentType.HOURLY){
+                BigDecimal additionalAmount = calculateAmountToPay(vehicle.getEntryTime());
+                hourlyPayment.setAmountToPay(hourlyPayment.getAmountToPay().add(additionalAmount));
+            }
+
             processHourlyPayment(hourlyPayment, amount, method);
             hourlyPayment.setPayerVehicle(vehicle);
-            return hourlyPaymentMapper.toDTO(hourlyPaymentRepository.save(hourlyPayment));
+            return hourlyPaymentMapper.toDTO(hourlyPaymentRepository.saveAndFlush(hourlyPayment));
         }
 
         if (payment instanceof RecurringPaymentDTO recurringPaymentDTO) {
-
             Customer customer = customerRepository.findByCpf(vehicle.getAssociatedCustomer().getCpf())
                     .orElseThrow(() -> new ApiException("Cliente não encontrado para CPF: " + vehicle.getAssociatedCustomer().getCpf(), HttpStatus.NOT_FOUND));
 
             RecurringPayment recurringPayment = recurringPaymentMapper.toEntity(recurringPaymentDTO);
             processRecurringPayment(recurringPayment, amount, method);
             recurringPayment.setPayerCustomer(customer);
-            return recurringPaymentMapper.toDTO(recurringPaymentRepository.save(recurringPayment));
+            return recurringPaymentMapper.toDTO(recurringPaymentRepository.saveAndFlush(recurringPayment));
         }
 
         throw new ApiException("Erro ao processar pagamento!", HttpStatus.NOT_ACCEPTABLE);
     }
 
+
+
     private void processHourlyPayment(HourlyPayment hourlyPayment, BigDecimal amount, String method) {
-        hourlyPayment.setPaidAmount(amount);
+        validatePaymentAmount(hourlyPayment, amount);
+
+        BigDecimal newPaidAmount = hourlyPayment.getPaidAmount().add(amount);
+        hourlyPayment.setPaidAmount(newPaidAmount);
         hourlyPayment.setMethod(PaymentMethod.valueOf(method));
-        setPaymentStatus(hourlyPayment);
+
+        updatePaymentStatus(hourlyPayment);
 
         if (hourlyPayment.getStatus() == PaymentStatus.PAID) {
             hourlyPayment.setPaymentDate(LocalDateTime.now());
         }
-
-        hourlyPaymentRepository.saveAndFlush(hourlyPayment);
     }
 
     private void processRecurringPayment(RecurringPayment recurringPayment, BigDecimal amount, String method) {
-        recurringPayment.setPaidAmount(amount);
+        validateRecurringPaymentPeriod(recurringPayment);
+        validatePaymentAmount(recurringPayment, amount);
+
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal newPaidAmount = recurringPayment.getPaidAmount().add(amount);
+        recurringPayment.setPaidAmount(newPaidAmount);
         recurringPayment.setMethod(PaymentMethod.valueOf(method));
-        setPaymentStatus(recurringPayment);
 
-        if(recurringPayment.getStatus() == PaymentStatus.PAID){
-            recurringPayment.setPaymentDate(LocalDateTime.now());
-            recurringPayment.setPeriodStart(LocalDateTime.now());
-            recurringPayment.setPeriodEnd(recurringPayment.getPeriodStart().plusMonths(1));
+        updatePaymentStatus(recurringPayment);
+
+        if (recurringPayment.getStatus() == PaymentStatus.PAID) {
+            recurringPayment.setPaymentDate(now);
+            
+            if (recurringPayment.getPeriodStart() == null) {
+                recurringPayment.setPeriodStart(now);
+                recurringPayment.setPeriodEnd(now.plusMonths(1));
+            }
+            recurringPayment.setActive(true);
         }
-
-        recurringPaymentRepository.saveAndFlush(recurringPayment);
     }
 
-    private void setPaymentStatus(Payment payment){
-        if(payment.getPaidAmount().compareTo(payment.getAmountToPay()) < 0){
+    private void validatePaymentAmount(Payment payment, BigDecimal amount) {
+        BigDecimal remainingAmount = payment.getAmountToPay().subtract(payment.getPaidAmount());
+        if (amount.compareTo(remainingAmount) > 0) {
+            throw new ApiException(
+                    String.format("Valor excede o saldo restante. Valor máximo permitido: %s", remainingAmount),
+                    HttpStatus.NOT_ACCEPTABLE
+            );
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ApiException("Valor do pagamento deve ser maior que zero", HttpStatus.NOT_ACCEPTABLE);
+        }
+    }
+
+    public void validateRecurringPaymentPeriod(RecurringPayment recurringPayment) {
+        if (recurringPayment.getPeriodEnd() != null && LocalDateTime.now().isAfter(recurringPayment.getPeriodEnd())) {
+            recurringPayment.setStatus(PaymentStatus.OVERDUE);
+            recurringPayment.setActive(false);
+            throw new ApiException("Pagamento vencido. Gere um novo pagamento.", HttpStatus.NOT_ACCEPTABLE);
+        }
+    }
+
+    private void updatePaymentStatus(Payment payment) {
+        BigDecimal totalPaid = payment.getPaidAmount();
+        BigDecimal totalToPay = payment.getAmountToPay();
+
+        int comparison = totalPaid.compareTo(totalToPay);
+
+        if (comparison < 0) {
             payment.setStatus(PaymentStatus.PARTIAL);
-        }
-
-        if(payment.getPaidAmount().compareTo(payment.getAmountToPay()) == 0){
+        } else if (comparison == 0) {
             payment.setStatus(PaymentStatus.PAID);
-        }
-
-        if (payment.getPaidAmount().compareTo(payment.getAmountToPay()) > 0){
-            throw new ApiException("Valor pago maior que o valor a ser pago!", HttpStatus.NOT_ACCEPTABLE);
-        }
-
-        if (payment instanceof RecurringPayment recurringPayment && LocalDateTime.now().isAfter(recurringPayment.getPeriodEnd())) {
-            payment.setStatus(PaymentStatus.OVERDUE);
-            throw new ApiException("Pagamento em vencido. Gere um novo pagamento.", HttpStatus.NOT_ACCEPTABLE);
         }
     }
 
     private BigDecimal calculateAmountToPay(LocalDateTime entryTime) {
         long minutes = Duration.between(entryTime, LocalDateTime.now()).toMinutes();
 
-        /*
-        Por motivos didaticos, o calculo do valor a ser pago ficará em 5 minutos representando 1 hora.
-        A baixo o calculo correto para o valor a ser pago:
-        long additionalHours = (minutes > 60) ? ((minutes - 1) / 60) + 1 : 0;
-        */
+        // Calcula as horas adicionais após a primeira hora paga
+        long additionalHours = (minutes > 60) ? ((minutes - 60) / 5) : 0;
 
-        // Arredonda para a próxima "hora cheia" (5 minutos = 1 hora)
-        long additionalHours = (minutes > 5) ? ((minutes - 1) / 5) + 1 : 0;
+        return BigDecimal.valueOf(additionalHours).multiply(BigDecimal.valueOf(2.00));
+    }
 
-        BigDecimal additionalCost = BigDecimal.valueOf(additionalHours).multiply(BigDecimal.valueOf(2.00));
+    public Object updateAmountToPay(String vehiclePlate) {
+        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
-        return BigDecimal.valueOf(2.00).add(additionalCost);
+        if(vehicle.getEntryTime() == null){
+            throw new ApiException("Veículo não está estacionado.", HttpStatus.NOT_FOUND);
+        }
+
+        Object payment = findUnpaidPayment(vehiclePlate);
+
+        if(payment instanceof HourlyPaymentDTO hourlyPaymentDTO){
+            HourlyPayment hourlyPayment = hourlyPaymentMapper.toEntity(hourlyPaymentDTO);
+            if(hourlyPayment.getType() == HourlyPaymentType.HOURLY){
+                BigDecimal additionalAmount = calculateAmountToPay(vehicle.getEntryTime());
+                hourlyPayment.setAmountToPay(hourlyPayment.getAmountToPay().add(additionalAmount));
+                hourlyPayment.setPayerVehicle(vehicle);
+                return hourlyPaymentMapper.toDTO(hourlyPaymentRepository.saveAndFlush(hourlyPayment));
+            }
+        }
+
+        return payment;
     }
 
 }

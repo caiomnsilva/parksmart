@@ -4,6 +4,7 @@ import com.api.park_management.enums.CustomerType;
 import com.api.park_management.enums.HourlyPaymentType;
 import com.api.park_management.enums.PaymentStatus;
 import com.api.park_management.exceptions.ApiException;
+import com.api.park_management.models.Customer;
 import com.api.park_management.models.Vehicle;
 import com.api.park_management.models.payment.HourlyPayment;
 import com.api.park_management.models.payment.Payment;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,15 +39,16 @@ public class PaymentFactoryImpl implements PaymentFactory{
             throw new ApiException("O veículo possui pagamentos pendentes e não pode iniciar um novo pagamento ou entrar no estacionamento.", HttpStatus.BAD_REQUEST);
         }
 
-        System.out.println("Creating payment for vehicle: " + vehicle.getVehiclePlate());
-
         Payment payment = createPayment(vehicle);
+
+
 
         // Se o pagamento for por hora, então associa o veículo ao pagamento
         if (payment instanceof HourlyPayment hourlyPayment) {
             hourlyPayment.setPayerVehicle(vehicle);
-            setHourlyPaymentType(hourlyPayment.getIdPayment(), type);
             payment.setAmountToPay(setHourlyPaymentAmoutToPay(type));
+            paymentRepository.saveAndFlush(hourlyPayment);
+            setHourlyPaymentType(hourlyPayment.getIdPayment(), type);
             paymentRepository.saveAndFlush(hourlyPayment);
             return hourlyPayment.getIdPayment();
         }
@@ -61,14 +64,29 @@ public class PaymentFactoryImpl implements PaymentFactory{
         throw new ApiException("Unknown payment type: " + payment.getClass().getName(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Cria um pagamento de acordo com o tipo de cliente associado ao veículo
     @Override
-    public Payment createPayment(Vehicle vehicle){
+    public Payment createPayment(Vehicle vehicle) {
+        Customer customer = vehicle.getAssociatedCustomer();
+
         // Se o veículo não tiver um cliente associado ou o cliente não for mensal, então o pagamento é por hora
-        if(vehicle.getAssociatedCustomer() == null || vehicle.getAssociatedCustomer().getType() != CustomerType.MONTHLY){
+        if (customer == null || customer.getType() != CustomerType.MONTHLY) {
             return new HourlyPayment();
         }
-        return new RecurringPayment(); // Se o cliente for mensal, então o pagamento é recorrente
+
+        // Verifique se o cliente já possui um pagamento recorrente ativo
+        if (hasActiveRecurringPayment(customer)) {
+            throw new ApiException("Já existe um pagamento recorrente ativo para este cliente.", HttpStatus.CONFLICT);
+        }
+
+        // Se o cliente for mensal e não tiver um pagamento recorrente ativo, então crie um novo pagamento recorrente
+        return new RecurringPayment();
+    }
+
+    private boolean hasActiveRecurringPayment(Customer customer) {
+        List<RecurringPayment> payments = recurringPaymentRepository.findByPayerCustomerCpfAndStatusIn(
+                customer.getCpf(), List.of(PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.PAID)
+        );
+        return payments.stream().anyMatch(payment -> LocalDateTime.now().isBefore(payment.getPeriodEnd()));
     }
 
     // Define o tipo de pagamento por hora

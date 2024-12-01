@@ -26,6 +26,4 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("SELECT p FROM HourlyPayment p WHERE p.idPayment = :id")
     HourlyPayment findHourlyPaymentById(UUID id);
 
-    //List<Payment> findByVehiclePlateAndStatusIn(String vehiclePlate, List<PaymentStatus> status);
-
 }

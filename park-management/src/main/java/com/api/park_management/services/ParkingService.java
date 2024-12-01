@@ -1,9 +1,12 @@
 package com.api.park_management.services;
 
 import com.api.park_management.dto.VehicleDTO;
+import com.api.park_management.enums.HourlyPaymentType;
 import com.api.park_management.exceptions.ApiException;
 import com.api.park_management.factory.PaymentFactory;
 import com.api.park_management.models.Vehicle;
+import com.api.park_management.models.payment.HourlyPayment;
+import com.api.park_management.models.payment.Payment;
 import com.api.park_management.repositories.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -52,5 +55,20 @@ public class ParkingService {
 
     }
 
+    @Transactional
+    public Object handleExit(String vehiclePlate) {
+        Vehicle vehicle = vehicleRepository.findByVehiclePlateAndCurrentSpotIsNotNull(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veículo não encontrado ou não está dentro do estacionamento!", HttpStatus.NOT_FOUND));
 
+        Object payment = paymentService.findUnpaidPayment(vehiclePlate);
+
+        if(payment == null){
+        spotService.unparkVehicle(vehiclePlate);
+        vehicle.setEntryTime(null);
+        vehicleRepository.saveAndFlush(vehicle);
+
+        }
+
+        throw new ApiException("Pagamento não encontrado!", HttpStatus.NOT_FOUND);
+    }
 }

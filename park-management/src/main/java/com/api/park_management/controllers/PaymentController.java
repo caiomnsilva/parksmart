@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -61,6 +60,13 @@ public class PaymentController {
     @PostMapping("/pay/{vehiclePlate}/{amount}&{method}")
     @ResponseStatus(HttpStatus.OK)
     public Object pay(@PathVariable String vehiclePlate, @PathVariable BigDecimal amount, @PathVariable String method){
-        return paymentService.payPayment(vehiclePlate, BigDecimal.valueOf(amount.doubleValue()), method);
+        return paymentService.handlePayment(vehiclePlate, BigDecimal.valueOf(amount.doubleValue()), method);
+    }
+
+    @Operation(summary = "Atualizar montante a pagar", description = "Endpoint para atualizar o montante a pagar.")
+    @PutMapping("/update/{vehiclePlate}")
+    @ResponseStatus(HttpStatus.OK)
+    public Object updateAmountToPay(@PathVariable String vehiclePlate){
+        return paymentService.updateAmountToPay(vehiclePlate);
     }
 }

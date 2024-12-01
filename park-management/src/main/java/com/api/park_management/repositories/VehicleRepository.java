@@ -15,5 +15,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
 
     Vehicle findByVehiclePlateAndAssociatedCustomerIsNull(String vehiclePlate);
 
+    Optional<Vehicle> findByVehiclePlateAndCurrentSpotIsNotNull(String vehiclePlate);
+
     Vehicle findByVehiclePlateAndCurrentSpotIsNullAndAssociatedCustomerIsNull(String vehiclePlate);
 }

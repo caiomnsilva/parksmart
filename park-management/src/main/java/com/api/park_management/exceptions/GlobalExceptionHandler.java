@@ -18,13 +18,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<CustomErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
-        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro de integridade dos dados", HttpStatus.BAD_REQUEST);
+        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro de integridade dos dados: " + ex, HttpStatus.BAD_REQUEST);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CustomErrorResponse> handleException(Exception ex) {
-        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro interno do servidor " + ex, HttpStatus.INTERNAL_SERVER_ERROR);
+        CustomErrorResponse errorResponse = new CustomErrorResponse("Erro interno do servidor: " + ex, HttpStatus.INTERNAL_SERVER_ERROR);
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
