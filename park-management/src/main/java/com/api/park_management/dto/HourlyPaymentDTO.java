@@ -23,10 +23,9 @@ public record HourlyPaymentDTO(
         @ValueOfEnum(enumClass = PaymentStatus.class) String status,
         @PastOrPresent LocalDateTime paymentDate,
         @Positive Double hoursParked,
-
         @PastOrPresent LocalDateTime entryTime,
         @FutureOrPresent LocalDateTime exitTime,
-
+        @FutureOrPresent LocalDateTime timeToLeave,
         @ValueOfEnum(enumClass = HourlyPaymentType.class) String type,
 
         String vehiclePlate

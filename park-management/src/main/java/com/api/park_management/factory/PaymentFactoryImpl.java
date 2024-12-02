@@ -12,6 +12,7 @@ import com.api.park_management.models.payment.RecurringPayment;
 import com.api.park_management.repositories.HourlyPaymentRepository;
 import com.api.park_management.repositories.PaymentRepository;
 import com.api.park_management.repositories.RecurringPaymentRepository;
+import com.api.park_management.repositories.VehicleRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -25,23 +26,35 @@ public class PaymentFactoryImpl implements PaymentFactory{
     private final PaymentRepository paymentRepository;
     private final HourlyPaymentRepository hourlyPaymentRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
+    private final VehicleRepository vehicleRepository;
 
-    public PaymentFactoryImpl(PaymentRepository paymentRepository, HourlyPaymentRepository hourlyPaymentRepository, RecurringPaymentRepository recurringPaymentRepository) {
+    public PaymentFactoryImpl(PaymentRepository paymentRepository, HourlyPaymentRepository hourlyPaymentRepository, RecurringPaymentRepository recurringPaymentRepository, VehicleRepository vehicleRepository) {
         this.paymentRepository = paymentRepository;
         this.hourlyPaymentRepository = hourlyPaymentRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
+        this.vehicleRepository = vehicleRepository;
     }
 
     @Override
     public UUID createAndAssociatePayment(Vehicle vehicle, String type) {
-        if (hasPendingHourlyPayments(vehicle.getVehiclePlate()) ||
-                (vehicle.getAssociatedCustomer() != null && hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf()))) {
-            throw new ApiException("O veículo possui pagamentos pendentes e não pode iniciar um novo pagamento ou entrar no estacionamento.", HttpStatus.BAD_REQUEST);
+        if (hasPendingHourlyPayments(vehicle.getVehiclePlate())) {
+
+            System.out.println("Vehicle Plate: " + vehicle.getVehiclePlate());
+            System.out.println("hasPendingHourlyPayments: " + hasPendingHourlyPayments(vehicle.getVehiclePlate()));
+
+            throw new ApiException("O veículo possui pagamentos por hora pendentes e não pode iniciar um novo pagamento.", HttpStatus.BAD_REQUEST);
+        }
+
+        if (vehicle.getAssociatedCustomer() != null && hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf())) {
+
+            System.out.println("CPF: " + vehicle.getAssociatedCustomer().getCpf());
+
+            System.out.println("hasPendingRecurringPayments: " + hasPendingRecurringPayments(vehicle.getAssociatedCustomer().getCpf()));
+
+            throw new ApiException("O cliente associado possui pagamentos recorrentes pendentes.", HttpStatus.BAD_REQUEST);
         }
 
         Payment payment = createPayment(vehicle);
-
-
 
         // Se o pagamento for por hora, então associa o veículo ao pagamento
         if (payment instanceof HourlyPayment hourlyPayment) {
@@ -61,7 +74,7 @@ public class PaymentFactoryImpl implements PaymentFactory{
             return recurringPayment.getIdPayment();
         }
 
-        throw new ApiException("Unknown payment type: " + payment.getClass().getName(), HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new ApiException("Tipo de pagamento desconhecido: " + payment.getClass().getName(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @Override
@@ -103,7 +116,7 @@ public class PaymentFactoryImpl implements PaymentFactory{
         hourlyPaymentRepository.saveAndFlush(payment);
     }
 
-    // Define o valor a ser pago de acordo com o tipo de pagamento por hora
+
     private BigDecimal setHourlyPaymentAmoutToPay(String type){
         if(HourlyPaymentType.valueOf(type) == HourlyPaymentType.NIGHT){
             return BigDecimal.valueOf(35.00);
@@ -121,14 +134,32 @@ public class PaymentFactoryImpl implements PaymentFactory{
     }
 
     private boolean hasPendingHourlyPayments(String vehiclePlate) {
-        // Verifica se existem pagamentos pendentes, vencidos ou parciais para a placa do veículo
-        List<HourlyPayment> payments = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndStatusIn(vehiclePlate
-                , List.of(PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PARTIAL));
-        return !payments.isEmpty();
+        Vehicle v = vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veículo não encontrado", HttpStatus.NOT_FOUND));
+
+
+        if (v.getAssociatedCustomer() == null || v.getAssociatedCustomer().getType() != CustomerType.MONTHLY) {
+
+            List<HourlyPayment> payments = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndStatusIn(vehiclePlate,
+                    List.of(PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PARTIAL));
+
+            HourlyPayment overduePayment = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndExitTimeIsNullAndTimeToLeaveIsNotNullAndTimeToLeaveBefore(vehiclePlate, LocalDateTime.now());
+            if (overduePayment != null) {
+                payments.add(overduePayment);
+            }
+
+            HourlyPayment openPayment = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndExitTimeIsNull(vehiclePlate);
+            if (openPayment != null) {
+                payments.add(openPayment);
+            }
+
+            return !payments.isEmpty();
+        }
+
+        return false;
     }
 
     private boolean hasPendingRecurringPayments(String cpf) {
-        // Verifica se existem pagamentos pendentes, vencidos ou parciais para o CPF do cliente
         List<RecurringPayment> payments = recurringPaymentRepository.findByPayerCustomerCpfAndStatusIn(cpf
                 , List.of(PaymentStatus.PENDING, PaymentStatus.PARTIAL));
         return !payments.isEmpty();

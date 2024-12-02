@@ -30,6 +30,9 @@ public class HourlyPayment extends Payment {
     @FutureOrPresent
     private LocalDateTime exitTime;
 
+    //@FutureOrPresent
+    private LocalDateTime timeToLeave;
+
     @Convert(converter = HourlyPaymentTypeConverter.class)
     @Column(nullable = false)
     private HourlyPaymentType type = HourlyPaymentType.HOURLY;

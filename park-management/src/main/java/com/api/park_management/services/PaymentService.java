@@ -24,11 +24,11 @@ import java.time.Duration;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final HourlyPaymentMapper hourlyPaymentMapper;
@@ -115,6 +115,7 @@ public class PaymentService {
         paymentRepository.deleteById(id);
     }
 
+
     public Object findUnpaidPayment(String vehiclePlate) {
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veículo não encontrado para a placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
@@ -125,6 +126,10 @@ public class PaymentService {
 
             if (hourlyPayment == null) {
                 hourlyPayment = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndStatus(vehiclePlate, PaymentStatus.PARTIAL);
+            }
+
+            if(hourlyPayment == null){
+                hourlyPayment = hourlyPaymentRepository.findByPayerVehicleVehiclePlateAndExitTimeIsNullAndTimeToLeaveIsNotNullAndTimeToLeaveBefore(vehiclePlate, LocalDateTime.now());
             }
 
             if (hourlyPayment == null){
@@ -148,6 +153,7 @@ public class PaymentService {
         return findById(recurringPayment.getIdPayment());
     }
 
+
     public Object handlePayment(String vehiclePlate, BigDecimal amount, String method) {
         Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
                 .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
@@ -156,18 +162,16 @@ public class PaymentService {
             throw new ApiException("Veículo não está estacionado.", HttpStatus.NOT_FOUND);
         }
 
-        if(Objects.equals(method, PaymentMethod.UNDEFINED.getValue())){
-            throw new ApiException("Método de pagamento inválido.", HttpStatus.BAD_REQUEST);
-        }
-
-        Object payment = findUnpaidPayment(vehiclePlate);
+        Object payment = updateAmountToPay(vehiclePlate);
 
         if (payment instanceof HourlyPaymentDTO hourlyPaymentDTO) {
             HourlyPayment hourlyPayment = hourlyPaymentMapper.toEntity(hourlyPaymentDTO);
 
+            hourlyPayment.setHoursParked(calculateHoursParked(hourlyPayment));
+
             if(hourlyPayment.getType() == HourlyPaymentType.HOURLY){
-                BigDecimal additionalAmount = calculateAmountToPay(vehicle.getEntryTime());
-                hourlyPayment.setAmountToPay(hourlyPayment.getAmountToPay().add(additionalAmount));
+
+                updatePaymentStatus(hourlyPayment);
             }
 
             processHourlyPayment(hourlyPayment, amount, method);
@@ -188,10 +192,10 @@ public class PaymentService {
         throw new ApiException("Erro ao processar pagamento!", HttpStatus.NOT_ACCEPTABLE);
     }
 
-
-
     private void processHourlyPayment(HourlyPayment hourlyPayment, BigDecimal amount, String method) {
         validatePaymentAmount(hourlyPayment, amount);
+
+        hourlyPayment.setHoursParked(calculateHoursParked(hourlyPayment));
 
         BigDecimal newPaidAmount = hourlyPayment.getPaidAmount().add(amount);
         hourlyPayment.setPaidAmount(newPaidAmount);
@@ -201,6 +205,7 @@ public class PaymentService {
 
         if (hourlyPayment.getStatus() == PaymentStatus.PAID) {
             hourlyPayment.setPaymentDate(LocalDateTime.now());
+            hourlyPayment.setTimeToLeave(calculateTimeToLeave(hourlyPayment));
         }
     }
 
@@ -251,6 +256,11 @@ public class PaymentService {
         BigDecimal totalPaid = payment.getPaidAmount();
         BigDecimal totalToPay = payment.getAmountToPay();
 
+        if (totalPaid == null || totalPaid.compareTo(BigDecimal.ZERO) == 0) {
+            payment.setStatus(PaymentStatus.PENDING);
+            return;
+        }
+
         int comparison = totalPaid.compareTo(totalToPay);
 
         if (comparison < 0) {
@@ -260,30 +270,36 @@ public class PaymentService {
         }
     }
 
-    private BigDecimal calculateAmountToPay(LocalDateTime entryTime) {
-        long minutes = Duration.between(entryTime, LocalDateTime.now()).toMinutes();
+    private BigDecimal calculateAdditionalAmountToPay(int currentHoursParked, int previouslyPaidHours) {
+        if (currentHoursParked <= previouslyPaidHours) {
+            return BigDecimal.ZERO;
+        }
 
-        // Calcula as horas adicionais após a primeira hora paga
-        long additionalHours = (minutes > 60) ? ((minutes - 60) / 5) : 0;
-
+        int additionalHours = currentHoursParked - previouslyPaidHours;
         return BigDecimal.valueOf(additionalHours).multiply(BigDecimal.valueOf(2.00));
     }
 
     public Object updateAmountToPay(String vehiclePlate) {
-        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
-                .orElseThrow(() -> new ApiException("Veiculo não encontrado para placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
-        if(vehicle.getEntryTime() == null){
-            throw new ApiException("Veículo não está estacionado.", HttpStatus.NOT_FOUND);
-        }
+        Vehicle vehicle = vehicleRepository.findByVehiclePlate(vehiclePlate)
+                .orElseThrow(() -> new ApiException("Veículo não encontrado para a placa: " + vehiclePlate, HttpStatus.NOT_FOUND));
 
         Object payment = findUnpaidPayment(vehiclePlate);
 
-        if(payment instanceof HourlyPaymentDTO hourlyPaymentDTO){
+        if (payment instanceof HourlyPaymentDTO hourlyPaymentDTO) {
             HourlyPayment hourlyPayment = hourlyPaymentMapper.toEntity(hourlyPaymentDTO);
-            if(hourlyPayment.getType() == HourlyPaymentType.HOURLY){
-                BigDecimal additionalAmount = calculateAmountToPay(vehicle.getEntryTime());
-                hourlyPayment.setAmountToPay(hourlyPayment.getAmountToPay().add(additionalAmount));
+
+            int newHoursParked = calculateHoursParked(hourlyPayment);
+            int previouslyPaidHours = hourlyPayment.getHoursParked();
+
+            if (hourlyPayment.getType() == HourlyPaymentType.HOURLY) {
+
+                BigDecimal additionalAmount = calculateAdditionalAmountToPay(newHoursParked, previouslyPaidHours);
+                hourlyPayment.setHoursParked(newHoursParked);
+
+                hourlyPayment.setAmountToPay(updatePaymentIfNecessary(hourlyPayment.getAmountToPay(), additionalAmount));
+
+                updatePaymentStatus(hourlyPayment);
                 hourlyPayment.setPayerVehicle(vehicle);
                 return hourlyPaymentMapper.toDTO(hourlyPaymentRepository.saveAndFlush(hourlyPayment));
             }
@@ -292,4 +308,44 @@ public class PaymentService {
         return payment;
     }
 
+    private BigDecimal updatePaymentIfNecessary(BigDecimal amountToPay, BigDecimal additionalAmount) {
+        return amountToPay.add(additionalAmount);
+    }
+
+    public int calculateHoursParked(HourlyPayment payment) {
+
+        if (payment.getEntryTime() == null) {
+            throw new ApiException("Hora de entrada é necessaria para calcular!", HttpStatus.BAD_REQUEST);
+        }
+
+        Duration duration = Duration.between(payment.getEntryTime(), LocalDateTime.now());
+
+        long totalMinutes = duration.toMinutes();
+
+        int hoursParked = (int) Math.ceil(totalMinutes / 60.0);
+
+        return Math.max(1, hoursParked);
+    }
+
+    public LocalDateTime calculateTimeToLeave(HourlyPayment payment) {
+        LocalDateTime paymentDateTime = payment.getPaymentDate();
+
+        return switch (payment.getType()) {
+            case HOURLY -> {
+                if (paymentDateTime != null) {
+                    yield paymentDateTime.withMinute(59).withSecond(59).withNano(999999999);
+                }
+                throw new ApiException("Data de pagamento é necessaria para calcular!", HttpStatus.BAD_REQUEST);
+            }
+
+            case NIGHT -> {
+                LocalDateTime nextDay = payment.getEntryTime().plusDays(1);
+                yield nextDay.withHour(8).withMinute(0).withSecond(0).withNano(0);
+            }
+
+            case DAYLIGHT -> payment.getEntryTime().withHour(18).withMinute(0).withSecond(0).withNano(0);
+
+            default -> throw new ApiException("Tipo de pagamento invalido: " + payment.getType(), HttpStatus.BAD_REQUEST);
+        };
+    }
 }
