@@ -8,7 +8,7 @@ import java.util.UUID;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.validation.constraints.PastOrPresent;
-import lombok.Data;
+import lombok.*;
 import org.hibernate.validator.constraints.Length;
 
 import com.api.park_management.enums.VehicleType;
@@ -32,8 +32,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 @Entity
-@Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "TB_VEHICLES")
+@Builder
 public class Vehicle implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
@@ -45,7 +49,7 @@ public class Vehicle implements Serializable {
 
     @NotBlank
     @Length(min = 7, max = 7)
-    @Pattern(regexp="^[A-Z]{3}\\d[A-Z\\d]\\d{2}")
+    @Pattern(regexp = "^[A-Z]{3}\\d[A-Z\\d]\\d{2}")
     @Column(nullable = false, unique = true)
     private String vehiclePlate;
 
@@ -53,7 +57,7 @@ public class Vehicle implements Serializable {
     @Length(min = 3, max = 25)
     @Column(nullable = false, length = 25)
     private String model;
-    
+
     @NotBlank
     @Length(min = 3, max = 25)
     @Column(nullable = false, length = 25)
@@ -76,4 +80,11 @@ public class Vehicle implements Serializable {
     @JsonManagedReference
     private Spot currentSpot;
 
+    public Vehicle(UUID idVehicle, String vehiclePlate, String model, String color, VehicleType type) {
+        this.idVehicle = idVehicle;
+        this.vehiclePlate = vehiclePlate;
+        this.model = model;
+        this.color = color;
+        this.type = type;
+    }
 }
