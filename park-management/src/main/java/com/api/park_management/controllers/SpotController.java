@@ -102,4 +102,11 @@ public class SpotController {
     public List<SpotDTO> getByType(@PathVariable String type){
         return spotService.getByType(SpotType.valueOf(type));
     }
+
+    @Operation(summary = "Deleta uma vaga pelo numero.", description = "Endpoint para deletar uma vaga pelo numero.")
+    @DeleteMapping("/{spotNumber}")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    public void deleteSpot(@PathVariable int spotNumber){
+        spotService.deleteSpot(spotNumber);
+    }
 }
